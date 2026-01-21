@@ -4,6 +4,7 @@
 /// and tracks the start and end time of the session.
 class Workout {
   final String id;
+  final String? name;
   final DateTime startTime;
   final DateTime? endTime;
   final String? notes;
@@ -11,6 +12,7 @@ class Workout {
 
   Workout({
     required this.id,
+    this.name,
     required this.startTime,
     this.endTime,
     this.notes,
@@ -41,6 +43,7 @@ class Workout {
   factory Workout.fromMap(Map<String, dynamic> map) {
     return Workout(
       id: map['id'] as String,
+      name: map['name'] as String?,
       startTime: DateTime.parse(map['start_time'] as String),
       endTime: map['end_time'] != null 
           ? DateTime.parse(map['end_time'] as String) 
@@ -54,6 +57,7 @@ class Workout {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'name': name,
       'start_time': startTime.toIso8601String(),
       'end_time': endTime?.toIso8601String(),
       'notes': notes,
@@ -64,6 +68,7 @@ class Workout {
   /// Create a copy of this workout with some fields changed
   Workout copyWith({
     String? id,
+    String? name,
     DateTime? startTime,
     DateTime? endTime,
     String? notes,
@@ -71,6 +76,7 @@ class Workout {
   }) {
     return Workout(
       id: id ?? this.id,
+      name: name ?? this.name,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       notes: notes ?? this.notes,

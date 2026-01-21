@@ -11,6 +11,7 @@ class WorkoutSet {
   final int reps;
   final bool isCompleted;
   final DateTime? completedAt;
+  final bool usePlates;
 
   WorkoutSet({
     required this.id,
@@ -21,6 +22,7 @@ class WorkoutSet {
     required this.reps,
     this.isCompleted = false,
     this.completedAt,
+    this.usePlates = false,
   });
 
   /// Create a WorkoutSet from a database map
@@ -36,6 +38,7 @@ class WorkoutSet {
       completedAt: map['completed_at'] != null 
           ? DateTime.parse(map['completed_at'] as String) 
           : null,
+      usePlates: map['use_plates'] == 1,
     );
   }
 
@@ -50,6 +53,7 @@ class WorkoutSet {
       'reps': reps,
       'is_completed': isCompleted ? 1 : 0,
       'completed_at': completedAt?.toIso8601String(),
+      'use_plates': usePlates ? 1 : 0,
     };
   }
 
@@ -63,6 +67,7 @@ class WorkoutSet {
     int? reps,
     bool? isCompleted,
     DateTime? completedAt,
+    bool? usePlates,
   }) {
     return WorkoutSet(
       id: id ?? this.id,
@@ -73,11 +78,18 @@ class WorkoutSet {
       reps: reps ?? this.reps,
       isCompleted: isCompleted ?? this.isCompleted,
       completedAt: completedAt ?? this.completedAt,
+      usePlates: usePlates ?? this.usePlates,
     );
   }
 
   /// Format weight for display (e.g., "50 kg" or "50.5 kg")
   String get weightDisplay {
+    if (usePlates) {
+      if (weight == weight.roundToDouble()) {
+        return '${weight.toInt()} plates';
+      }
+      return '${weight.toStringAsFixed(1)} plates';
+    }
     if (weight == weight.roundToDouble()) {
       return '${weight.toInt()} kg';
     }

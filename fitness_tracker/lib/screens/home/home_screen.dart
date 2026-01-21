@@ -226,25 +226,64 @@ class HomeScreen extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final provider = context.read<WorkoutProvider>();
-              await provider.startWorkout();
-              if (context.mounted) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ActiveWorkoutScreen(),
-                  ),
-                );
-              }
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Start Workout'),
-          ),
-        ],
+      ElevatedButton.icon(
+        onPressed: () => _showStartWorkoutDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Start Workout'),
       ),
-    );
-  }
+    ],
+  ),
+);
+}
+
+void _showStartWorkoutDialog(BuildContext context) {
+final controller = TextEditingController();
+showDialog(
+  context: context,
+  builder: (context) => AlertDialog(
+    backgroundColor: AppTheme.cardDark,
+    title: Text('New Workout', style: AppTheme.headingSmall),
+    content: TextField(
+      controller: controller,
+      style: AppTheme.bodyMedium,
+      decoration: InputDecoration(
+        hintText: 'Workout Name (optional)',
+        hintStyle: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppTheme.textTertiary),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppTheme.primaryColor),
+        ),
+      ),
+      autofocus: true,
+      textCapitalization: TextCapitalization.sentences,
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: Text('Cancel', style: TextStyle(color: AppTheme.textTertiary)),
+      ),
+      ElevatedButton(
+        onPressed: () async {
+          final name = controller.text.trim();
+          final provider = context.read<WorkoutProvider>();
+          final success = await provider.startWorkout(name: name.isEmpty ? null : name);
+          if (success && context.mounted) {
+            Navigator.pop(context);
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ActiveWorkoutScreen(),
+              ),
+            );
+          }
+        },
+        child: const Text('Start'),
+      ),
+    ],
+  ),
+);
+}
 
   Widget _buildWorkoutCard(BuildContext context, Workout workout) {
     final dateFormat = DateFormat('EEEE, MMM d');
@@ -318,9 +357,16 @@ class HomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          dateFormat.format(workout.startTime),
-                          style: AppTheme.labelLarge,
+                          workout.name ?? dateFormat.format(workout.startTime),
+                          style: AppTheme.labelLarge.copyWith(
+                            fontWeight: workout.name != null ? FontWeight.bold : FontWeight.normal,
+                          ),
                         ),
+                        if (workout.name != null)
+                          Text(
+                            dateFormat.format(workout.startTime),
+                            style: AppTheme.bodySmall.copyWith(fontSize: 10),
+                          ),
                         const SizedBox(height: 4),
                         Row(
                           children: [

@@ -104,7 +104,7 @@ class WorkoutProvider with ChangeNotifier {
   }
 
   /// Start a new workout session
-  Future<bool> startWorkout({String? notes}) async {
+  Future<bool> startWorkout({String? name, String? notes}) async {
     if (_activeWorkout != null) {
       _error = 'A workout is already in progress';
       notifyListeners();
@@ -114,6 +114,7 @@ class WorkoutProvider with ChangeNotifier {
     try {
       final workout = Workout(
         id: _uuid.v4(),
+        name: name,
         startTime: DateTime.now(),
         notes: notes,
         isCompleted: false,
@@ -148,15 +149,19 @@ class WorkoutProvider with ChangeNotifier {
     }
 
     try {
+      // Check for last performance to pre-fill
+      final lastPerformance = await _db.getLastPerformance(exercise.id);
+
       // Create first set for the exercise
       final set = WorkoutSet(
         id: _uuid.v4(),
         workoutId: _activeWorkout!.id,
         exerciseId: exercise.id,
         setNumber: 1,
-        weight: 0,
-        reps: 0,
+        weight: lastPerformance?.weight ?? 0,
+        reps: lastPerformance?.reps ?? 0,
         isCompleted: false,
+        usePlates: lastPerformance?.usePlates ?? false,
       );
 
       await _db.insertWorkoutSet(set);
@@ -208,6 +213,7 @@ class WorkoutProvider with ChangeNotifier {
         weight: lastSet?.weight ?? 0,
         reps: lastSet?.reps ?? 0,
         isCompleted: false,
+        usePlates: lastSet?.usePlates ?? false,
       );
 
       await _db.insertWorkoutSet(newSet);
@@ -344,7 +350,7 @@ class WorkoutProvider with ChangeNotifier {
 
     try {
       final completedWorkout = _activeWorkout!.copyWith(
-        endTime: DateTime.now(),
+        endTime: _activeWorkout!.endTime ?? DateTime.now(),
         isCompleted: true,
         notes: notes ?? _activeWorkout!.notes,
       );
@@ -408,6 +414,10 @@ class WorkoutProvider with ChangeNotifier {
     try {
       await _db.deleteWorkout(workoutId);
       _workouts.removeWhere((w) => w.id == workoutId);
+      if (_activeWorkout?.id == workoutId) {
+        _activeWorkout = null;
+        _activeWorkoutSets = [];
+      }
       notifyListeners();
       return true;
     } catch (e) {
@@ -415,6 +425,45 @@ class WorkoutProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  /// Update workout details (name, notes, etc)
+  Future<bool> updateWorkout(Workout workout) async {
+    try {
+      await _db.updateWorkout(workout);
+      
+      // Update in workouts list
+      final index = _workouts.indexWhere((w) => w.id == workout.id);
+      if (index != -1) {
+        _workouts[index] = workout;
+      }
+      
+      // If it's the active workout, update it too
+      if (_activeWorkout?.id == workout.id) {
+        _activeWorkout = workout;
+      }
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update workout: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Set a workout as active for editing (even if completed)
+  Future<void> editWorkout(Workout workout) async {
+    _activeWorkout = workout;
+    await _loadActiveWorkoutSets();
+    notifyListeners();
+  }
+
+  /// Clear the active workout without finishing it (useful for completed workout editing)
+  void clearActiveWorkout() {
+    _activeWorkout = null;
+    _activeWorkoutSets = [];
+    notifyListeners();
   }
 
   /// Get the last performance for an exercise

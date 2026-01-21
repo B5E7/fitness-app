@@ -6,6 +6,7 @@ import '../../providers/workout_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../models/workout.dart';
 import '../../models/workout_set.dart';
+import '../workout/active_workout_screen.dart';
 
 /// Workout detail screen showing exercises and sets for a completed workout
 class WorkoutDetailScreen extends StatefulWidget {
@@ -47,6 +48,10 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         backgroundColor: Colors.transparent,
         title: Text('Workout Details', style: AppTheme.headingSmall),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
+            onPressed: () => _editWorkout(context),
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: AppTheme.error),
             onPressed: () => _confirmDelete(context),
@@ -108,12 +113,16 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    dateFormat.format(widget.workout.startTime),
-                                    style: AppTheme.labelLarge,
+                                    widget.workout.name ?? dateFormat.format(widget.workout.startTime),
+                                    style: AppTheme.labelLarge.copyWith(
+                                      fontWeight: widget.workout.name != null ? FontWeight.bold : FontWeight.normal,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Started at ${timeFormat.format(widget.workout.startTime)}',
+                                    widget.workout.name != null 
+                                      ? 'Started at ${timeFormat.format(widget.workout.startTime)} on ${DateFormat('MMM d').format(widget.workout.startTime)}'
+                                      : 'Started at ${timeFormat.format(widget.workout.startTime)}',
                                     style: AppTheme.bodySmall,
                                   ),
                                 ],
@@ -342,6 +351,16 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
             ? AppTheme.bodySmall.copyWith(fontWeight: FontWeight.bold)
             : AppTheme.bodyMedium,
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  void _editWorkout(BuildContext context) {
+    final provider = context.read<WorkoutProvider>();
+    provider.editWorkout(widget.workout);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ActiveWorkoutScreen(isEditing: true),
       ),
     );
   }

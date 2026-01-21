@@ -15,7 +15,8 @@ import 'exercise_picker_screen.dart';
 /// This screen displays the current workout with all exercises
 /// and allows the user to add sets, update weight/reps, and complete the workout.
 class ActiveWorkoutScreen extends StatefulWidget {
-  const ActiveWorkoutScreen({super.key});
+  final bool isEditing;
+  const ActiveWorkoutScreen({super.key, this.isEditing = false});
 
   @override
   State<ActiveWorkoutScreen> createState() => _ActiveWorkoutScreenState();
@@ -86,29 +87,52 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             leading: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => _confirmCancel(context, provider),
+              icon: Icon(widget.isEditing ? Icons.arrow_back : Icons.close),
+              onPressed: () {
+                if (widget.isEditing) {
+                  provider.clearActiveWorkout();
+                  Navigator.of(context).pop();
+                } else {
+                  _confirmCancel(context, provider);
+                }
+              },
             ),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Workout', style: AppTheme.headingSmall),
-                if (_showTimer)
-                  Text(
-                    _formatDuration(duration),
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.accentGreen,
-                    ),
+            title: InkWell(
+              onTap: () => _editWorkoutName(context, provider),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          workout.name ?? 'Workout',
+                          style: AppTheme.headingSmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.edit, size: 14, color: AppTheme.textTertiary),
+                    ],
                   ),
-              ],
+                  if (_showTimer && !widget.isEditing)
+                    Text(
+                      _formatDuration(duration),
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.accentGreen,
+                      ),
+                    ),
+                ],
+              ),
             ),
             actions: [
               TextButton.icon(
                 onPressed: provider.activeWorkoutSets.isEmpty
                     ? null
                     : () => _finishWorkout(context, provider),
-                icon: const Icon(Icons.check),
-                label: const Text('Finish'),
+                icon: Icon(widget.isEditing ? Icons.save : Icons.check),
+                label: Text(widget.isEditing ? 'Save' : 'Finish'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.accentGreen,
                 ),
@@ -317,7 +341,26 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   child: Center(
                     child: Consumer<SettingsProvider>(
                       builder: (context, settings, child) {
-                        return Text('Weight (${settings.weightUnitString})', style: AppTheme.bodySmall);
+                        final usePlates = exerciseSets.sets.isNotEmpty && exerciseSets.sets.first.usePlates;
+                        return InkWell(
+                          onTap: () {
+                            // Toggle all sets for this exercise
+                            for (final set in exerciseSets.sets) {
+                              provider.updateSet(set.copyWith(usePlates: !usePlates));
+                            }
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                usePlates ? 'Plates' : 'Weight (${settings.weightUnitString})',
+                                style: AppTheme.bodySmall.copyWith(color: AppTheme.primaryColor),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.sync, size: 12, color: AppTheme.primaryColor),
+                            ],
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -451,6 +494,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppTheme.elevatedDark,
+                    hintText: set.usePlates ? 'Plates' : '0',
+                    hintStyle: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 12,
@@ -584,14 +629,59 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
+  void _editWorkoutName(BuildContext context, WorkoutProvider provider) {
+    if (provider.activeWorkout == null) return;
+    final controller = TextEditingController(text: provider.activeWorkout!.name ?? '');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        title: Text('Edit Workout Name', style: AppTheme.headingSmall),
+        content: TextField(
+          controller: controller,
+          style: AppTheme.bodyMedium,
+          decoration: InputDecoration(
+            hintText: 'Workout Name',
+            hintStyle: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: AppTheme.textTertiary),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: AppTheme.primaryColor),
+            ),
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: AppTheme.textTertiary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              provider.updateWorkout(provider.activeWorkout!.copyWith(name: newName.isEmpty ? null : newName));
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _finishWorkout(BuildContext context, WorkoutProvider provider) {
+    final bool isCompleted = provider.activeWorkout?.isCompleted ?? false;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardDark,
-        title: Text('Finish Workout', style: AppTheme.headingSmall),
+        title: Text(widget.isEditing ? 'Save Changes' : 'Finish Workout', style: AppTheme.headingSmall),
         content: Text(
-          'Complete this workout session?',
+          widget.isEditing 
+            ? 'Save changes to this workout?'
+            : 'Complete this workout session?',
           style: AppTheme.bodyMedium,
         ),
         actions: [
@@ -604,11 +694,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               backgroundColor: AppTheme.accentGreen,
             ),
             onPressed: () async {
-              await provider.finishWorkout();
+              if (widget.isEditing) {
+                // If it was already completed, just update it.
+                // If it wasn't, finish it.
+                if (isCompleted) {
+                  // Already completed, just clear active state
+                  provider.clearActiveWorkout();
+                } else {
+                  await provider.finishWorkout();
+                }
+              } else {
+                await provider.finishWorkout();
+              }
               if (ctx.mounted) Navigator.of(ctx).pop();
               if (context.mounted) Navigator.of(context).pop();
             },
-            child: const Text('Finish'),
+            child: Text(widget.isEditing ? 'Save' : 'Finish'),
           ),
         ],
       ),
